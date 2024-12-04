@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Booking System</title>
+</head>
+<body style="background-image: url(https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cmVzdGF1cmFudHxlbnwwfHwwfHx8MA%3D%3D)">
+    <div class="content-wrapper">
+        <div id="initial-page">
+            <div class="logo-container">
+                <img src="Picture1-removebg-preview.png" alt="Company Logo" class="company-logo">
+            </div>
+            <div class="header-section">
+                <h1>Make Sure With DineSure </h1>
+                <button class="find-btn" onclick="getLocation()">Book Your Table</button>
+            </div>
+        </div>
+        
+        <div id="restaurants" style="display: none;"></div>
+    </div>
+
+
+    <script>
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const latitude = position.coords.latitude;
+                        const longitude = position.coords.longitude;
+                        fetchNearbyRestaurants(latitude, longitude);
+                    },
+                    error => {
+                        alert('Error getting location: ' + error.message);
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        function fetchNearbyRestaurants(latitude, longitude) {
+            // First, get the address from coordinates
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Sample restaurant data - in a real app, you'd fetch this from your backend
+                    const sampleRestaurants = [
+                        { name: "The Fine Diner", cuisine: "Continental", availableTables: 5 },
+                        { name: "Spice Garden", cuisine: "Indian", availableTables: 4 },
+                        { name: "Sushi Express", cuisine: "Japanese", availableTables: 6 }
+                    ];
+                    displayRestaurants(sampleRestaurants, data.address);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error fetching location details');
+                });
+        }
+    
+        function displayRestaurants(restaurants, address) {
+            // Hide initial page and show restaurants page
+            document.getElementById('initial-page').style.display = 'none';
+            const restaurantDiv = document.getElementById('restaurants');
+            restaurantDiv.style.display = 'block';
+
+            // Add a back button
+            restaurantDiv.innerHTML = `
+                <button onclick="goBack()" class="back-btn">← Back</button>
+                <h3>Your location: ${address.road || ''} ${address.city || ''} ${address.country || ''}</h3>
+                <h4>Found ${restaurants.length} restaurants nearby:</h4>
+            `;
+            
+            restaurants.forEach(restaurant => {
+                // Generate sample table data
+                const tables = generateSampleTables(restaurant.availableTables);
+                
+                const div = document.createElement('div');
+                div.className = 'restaurant-card';
+                div.innerHTML = `
+                    <h2>${restaurant.name}</h2>
+                    <p>Cuisine: ${restaurant.cuisine}</p>
+                    <div class="table-grid">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Table No.</th>
+                                    <th>Capacity</th>
+                                    <th>Status</th>
+                                    <th>Time Slots</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tables.map(table => `
+                                    <tr class="${table.status.toLowerCase()}">
+                                        <td>${table.number}</td>
+                                        <td>${table.capacity} persons</td>
+                                        <td>${table.status}</td>
+                                        <td>
+                                            <select id="timeSlot-${restaurant.name}-${table.number}" 
+                                                    ${table.status === 'Booked' ? 'disabled' : ''}>
+                                                <option value="">Select Time</option>
+                                                ${generateTimeSlots()}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <button 
+                                                onclick="bookTable('${restaurant.name}', ${table.number})"
+                                                class="book-btn"
+                                                ${table.status === 'Booked' ? 'disabled' : ''}>
+                                                ${table.status === 'Booked' ? 'Booked' : 'Book Now'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                restaurantDiv.appendChild(div);
+            });
+        }
+    
+        function generateSampleTables(numTables) {
+            const tables = [];
+            for (let i = 1; i <= numTables; i++) {
+                tables.push({
+                    number: i,
+                    capacity: Math.floor(Math.random() * 4) + 2, // 2-6 persons
+                    status: Math.random() > 0.5 ? 'Available' : 'Booked'
+                });
+            }
+            return tables;
+        }
+    
+        function generateTimeSlots() {
+            const slots = [];
+            for (let hour = 11; hour <= 22; hour++) {
+                slots.push(`${hour}:00`);
+                slots.push(`${hour}:30`);
+            }
+            return slots.map(slot => `<option value="${slot}">${slot}</option>`).join('');
+        }
+    
+        function bookTable(restaurantName, tableNumber) {
+            const timeSlotElement = document.getElementById(`timeSlot-${restaurantName}-${tableNumber}`);
+            const selectedTime = timeSlotElement.value;
+            
+            if (!selectedTime) {
+                alert('Please select a time slot first!');
+                return;
+            }
+            
+            // Here you would typically make an API call to your backend
+            alert(`Booking confirmed!\nRestaurant: ${restaurantName}\nTable: ${tableNumber}\nTime: ${selectedTime}`);
+            
+            // Update the UI to show the table as booked
+            const button = timeSlotElement.parentElement.nextElementSibling.querySelector('button');
+            button.disabled = true;
+            button.textContent = 'Booked';
+            timeSlotElement.disabled = true;
+            timeSlotElement.parentElement.parentElement.className = 'booked';
+        }
+
+        function goBack() {
+            document.getElementById('initial-page').style.display = 'block';
+            document.getElementById('restaurants').style.display = 'none';
+        }
+    </script>
+    
+    <style>
+        body {
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            margin: 0;
+            color: white;
+        }
+    
+        .table-grid {
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+    
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            background-color: white;
+        }
+    
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+    
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+    
+        td {
+            color: black;
+        }
+    
+        tr.available {
+            background-color: #f0f8f0;
+            color: black;
+        }
+    
+        tr.booked {
+            background-color: #fff0f0;
+        }
+    
+        select {
+            padding: 6px;
+            width: 100%;
+        }
+    
+        .book-btn {
+            padding: 6px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;  /* Center the book buttons */
+        }
+    
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    
+        tr.booked .book-btn {
+            background-color: #cccccc;
+        }
+    
+        .header-section {
+            text-align: center;
+            padding: 20px 0;
+        }
+    
+        .header-section h1 {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);  /* Add shadow for better readability */
+            margin-bottom: 20px;
+        }
+
+        .logo-container{
+            margin-left: 43%;
+            
+        }
+    
+        .find-btn {
+            padding: 8px 20px;     /* Reduced padding */
+            font-size: 0.9rem;     /* Smaller font size */
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            transform: scale(0.75);  /* Reduce overall size by 25% */
+        }
+    
+        .find-btn:hover {
+            background-color: #45a049;
+        }
+    
+        .content-wrapper {
+            background-color: rgba(0, 0, 0, 0.5);  /* Darker semi-transparent background */
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .back-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: background-color 0.3s;
+        }
+
+        .back-btn:hover {
+            background-color: #45a049;
+        }
+
+        #restaurants {
+            padding: 20px;
+        }
+
+        #restaurants h3, #restaurants h4 {
+            text-align: center;  /* Center the text */
+        }
+
+        .restaurant-card {
+            text-align: center;  /* Center the text within each restaurant card */
+            margin: 20px 0;  /* Add some margin for spacing */
+        }
+
+        #initial-page {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            width: 100%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+
+        .company-logo {
+            transform: scale(1.5);
+            max-width: 100%;
+            height: auto;
+        }
+
+        .header-section {
+            text-align: center;
+            padding: 20px 0;
+            transform: scale(1.5);  /* Make header 50% bigger */
+        }
+
+        .header-section h1 {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 30px;  /* Increased spacing */
+            font-size: 2.5rem;    /* Larger font size */
+        }
+
+        .find-btn {
+            padding: 15px 35px;    /* Larger padding */
+            font-size: 1.2rem;     /* Larger font size */
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+    </style>
